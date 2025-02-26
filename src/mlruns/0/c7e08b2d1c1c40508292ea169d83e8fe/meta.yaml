@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/Titanic/src/mlruns/0/c7e08b2d1c1c40508292ea169d83e8fe/artifacts
+end_time: 1739972141305
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: c7e08b2d1c1c40508292ea169d83e8fe
+run_name: respected-flea-425
+run_uuid: c7e08b2d1c1c40508292ea169d83e8fe
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739972136347
+status: 3
+tags: []
+user_id: toadevpython

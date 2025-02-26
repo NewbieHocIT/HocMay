@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/Titanic/src/mlruns/0/503b90d6a1654706b81746bb77c72a89/artifacts
+end_time: 1739972070695
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 503b90d6a1654706b81746bb77c72a89
+run_name: dashing-colt-789
+run_uuid: 503b90d6a1654706b81746bb77c72a89
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739972065075
+status: 3
+tags: []
+user_id: toadevpython

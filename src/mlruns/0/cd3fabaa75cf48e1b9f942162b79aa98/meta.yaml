@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/Titanic/src/mlruns/0/cd3fabaa75cf48e1b9f942162b79aa98/artifacts
+end_time: 1739973257326
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: cd3fabaa75cf48e1b9f942162b79aa98
+run_name: burly-pig-415
+run_uuid: cd3fabaa75cf48e1b9f942162b79aa98
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739973251992
+status: 3
+tags: []
+user_id: toadevpython

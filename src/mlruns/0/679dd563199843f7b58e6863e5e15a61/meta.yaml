@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/Titanic/src/mlruns/0/679dd563199843f7b58e6863e5e15a61/artifacts
+end_time: 1739972986411
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 679dd563199843f7b58e6863e5e15a61
+run_name: unique-yak-56
+run_uuid: 679dd563199843f7b58e6863e5e15a61
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739972980223
+status: 3
+tags: []
+user_id: toadevpython

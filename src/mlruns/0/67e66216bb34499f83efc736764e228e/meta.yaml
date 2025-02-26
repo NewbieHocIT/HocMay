@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/Titanic/src/mlruns/0/67e66216bb34499f83efc736764e228e/artifacts
+end_time: 1739973003738
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 67e66216bb34499f83efc736764e228e
+run_name: abrasive-yak-973
+run_uuid: 67e66216bb34499f83efc736764e228e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1739972998835
+status: 3
+tags: []
+user_id: toadevpython
