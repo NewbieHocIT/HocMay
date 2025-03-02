@@ -1,9 +1,12 @@
-mlflow
 streamlit
-scikit-learn
+numpy
 pandas
-imblearn
+scikit-learn
+matplotlib
 tensorflow
-PIL
-umap
+mlflow
 dagshub
+imbalanced-learn
+Pillow
+umap-learn
+seaborn
