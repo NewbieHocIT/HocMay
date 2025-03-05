@@ -67,8 +67,20 @@ def train_model(X_train, y_train, X_valid, y_valid, model_type='multiple', degre
         mlflow.log_metric("valid_recall", valid_recall)
         mlflow.sklearn.log_model(model, "model")
 
+    # Lưu mô hình vào session_state
+    if 'regression_models' not in st.session_state:
+        st.session_state.regression_models = {}
+    st.session_state.regression_models[run_name] = {
+        "model": model,
+        "poly": poly,
+        "model_type": model_type,
+        "degree": degree
+    }
+
     return model, train_precision, valid_precision, train_f1, valid_f1, train_recall, valid_recall, poly
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
 def display():
     st.title("Mô phỏng Hồi quy với MLflow Tracking")
@@ -148,31 +160,22 @@ def display():
                 st.write(f"- Validation F1 Score: {valid_f1:.2f}")
                 st.write(f"- Train Recall: {train_recall:.2f}")
                 st.write(f"- Validation Recall: {valid_recall:.2f}")
-
-
-import numpy as np
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-
-
 def predict():
     st.subheader("📝 Nhập thông tin dự đoán")
     
     # Kiểm tra xem có mô hình nào đã được huấn luyện không
-    if 'models' not in st.session_state or not st.session_state.models:
+    if 'regression_models' not in st.session_state or not st.session_state.regression_models:
         st.error("🚨 Vui lòng huấn luyện ít nhất một mô hình trước khi dự đoán.")
         return
 
     # Chọn mô hình từ danh sách
-    model_names = list(st.session_state.models.keys())
+    model_names = list(st.session_state.regression_models.keys())
     selected_model_name = st.selectbox("Chọn mô hình đã huấn luyện", model_names)
 
     # Lấy thông tin mô hình đã chọn
-    selected_model = st.session_state.models[selected_model_name]
+    selected_model = st.session_state.regression_models[selected_model_name]
     model = selected_model["model"]
-    poly = selected_model["poly"]
+    poly = selected_model.get("poly", None)
     model_type = selected_model["model_type"]
     degree = selected_model.get("degree", None)
 
@@ -207,6 +210,7 @@ def predict():
         if model_type == "polynomial" and poly is not None:
             input_data = poly.transform(input_data)
 
+        # Dự đoán
         prediction = model.predict(input_data)[0]
         prediction = sigmoid(prediction)  # Đưa về khoảng [0, 1]
 

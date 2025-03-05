@@ -221,7 +221,7 @@ def train():
             ["linear", "sigmoid"], 
             key="classification_kernel_selectbox"  # Thêm key duy nhất
         )
-        model = SVC(C=C, kernel=kernel)
+        model = SVC(C=C, kernel=kernel, probability=True)  # Thêm probability=True
     
     n_folds = st.slider(
         "Chọn số folds (KFold Cross-Validation):", 
@@ -296,30 +296,30 @@ def train():
             mlflow.sklearn.log_model(model, model_choice.lower())
 
             status_text.text("✅ Huấn luyện và logging hoàn tất!")
-            if "models" not in st.session_state:
-                st.session_state["models"] = []
+            if "classification_models" not in st.session_state:
+                st.session_state["classification_models"] = []
 
             model_name = model_choice.lower().replace(" ", "_")
             if model_choice == "SVM":
                 model_name += f"_{kernel}"
 
-            existing_model = next((item for item in st.session_state["models"] if item["name"] == model_name), None)
+            existing_model = next((item for item in st.session_state["classification_models"] if item["name"] == model_name), None)
 
             if existing_model:
                 count = 1
                 new_model_name = f"{model_name}_{count}"
-                while any(item["name"] == new_model_name for item in st.session_state["models"]):
+                while any(item["name"] == new_model_name for item in st.session_state["classification_models"]):
                     count += 1
                     new_model_name = f"{model_name}_{count}"
                 model_name = new_model_name
                 st.warning(f"⚠️ Mô hình được lưu với tên: {model_name}")
 
-            st.session_state["models"].append({"name": model_name, "model": model})
+            st.session_state["classification_models"].append({"name": model_name, "model": model})
             st.write(f"🔹 Mô hình đã được lưu với tên: {model_name}")
-            st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['models'])}")
+            st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['classification_models'])}")
 
             st.write("📋 Danh sách các mô hình đã lưu:")
-            model_names = [model["name"] for model in st.session_state["models"]]
+            model_names = [model["name"] for model in st.session_state["classification_models"]]
             st.write(", ".join(model_names))
 
             st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
@@ -415,14 +415,14 @@ def du_doan():
     st.title("🔢 Dự đoán chữ số viết tay")
 
     # Kiểm tra xem đã có mô hình chưa
-    if "models" not in st.session_state or not st.session_state["models"]:
+    if "classification_models" not in st.session_state or not st.session_state["classification_models"]:
         st.error("⚠️ Chưa có mô hình nào được huấn luyện. Hãy huấn luyện mô hình trước.")
         return
 
     # Chọn mô hình
-    model_names = [model["name"] for model in st.session_state["models"]]
+    model_names = [model["name"] for model in st.session_state["classification_models"]]
     selected_model_name = st.selectbox("🔍 Chọn mô hình đã huấn luyện:", model_names)
-    selected_model = next(model["model"] for model in st.session_state["models"] if model["name"] == selected_model_name)
+    selected_model = next(model["model"] for model in st.session_state["classification_models"] if model["name"] == selected_model_name)
 
     # Chọn cách nhập ảnh: Tải lên hoặc Vẽ
     option = st.radio("📌 Chọn cách nhập ảnh:", ["🖼️ Tải ảnh lên", "✍️ Vẽ số"],key="input_option_radio")
@@ -475,7 +475,6 @@ def du_doan():
 
         # 📊 Vẽ biểu đồ độ tin cậy
         st.bar_chart(probabilities)
-
 
 
 

@@ -234,8 +234,8 @@ def train():
             status_text.text("💾 Đang lưu mô hình...")
             progress_bar.progress(90)
 
-            if "models" not in st.session_state:
-                st.session_state["models"] = []
+            if "clustering_models" not in st.session_state:
+                st.session_state["clustering_models"] = []
 
             model_name = model_choice.lower().replace(" ", "_")
             if model_choice == "DBSCAN":
@@ -243,23 +243,23 @@ def train():
             elif model_choice == "K-means":
                 model_name += f"_n_clusters{n_clusters}"
 
-            existing_model = next((item for item in st.session_state["models"] if item["name"] == model_name), None)
+            existing_model = next((item for item in st.session_state["clustering_models"] if item["name"] == model_name), None)
 
             if existing_model:
                 count = 1
                 new_model_name = f"{model_name}_{count}"
-                while any(item["name"] == new_model_name for item in st.session_state["models"]):
+                while any(item["name"] == new_model_name for item in st.session_state["clustering_models"]):
                     count += 1
                     new_model_name = f"{model_name}_{count}"
                 model_name = new_model_name
                 st.warning(f"⚠️ Mô hình được lưu với tên: {model_name}")
 
-            st.session_state["models"].append({"name": model_name, "model": model})
+            st.session_state["clustering_models"].append({"name": model_name, "model": model})
             st.write(f"🔹 Mô hình đã được lưu với tên: {model_name}")
-            st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['models'])}")
+            st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['clustering_models'])}")
 
             st.write("📋 Danh sách các mô hình đã lưu:")
-            model_names = [model["name"] for model in st.session_state["models"]]
+            model_names = [model["name"] for model in st.session_state["clustering_models"]]
             st.write(", ".join(model_names))
 
             st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
@@ -270,18 +270,17 @@ from streamlit_drawable_canvas import st_canvas
 from PIL import Image, ImageOps
 
 def du_doan():
-    st.title("🔢 Dự đoán chữ số viết tay")
+    st.title("🔢 Dự đoán phân cụm")
 
-    # Kiểm tra mô hình đã huấn luyện chưa
-    if "models" not in st.session_state or not st.session_state["models"]:
+    # Kiểm tra xem đã có mô hình chưa
+    if "clustering_models" not in st.session_state or not st.session_state["clustering_models"]:
         st.error("⚠️ Chưa có mô hình nào được huấn luyện. Hãy huấn luyện mô hình trước.")
         return
 
-    # Chọn mô hình đã huấn luyện
-    model_names = [model["name"] for model in st.session_state["models"]]
+    # Chọn mô hình
+    model_names = [model["name"] for model in st.session_state["clustering_models"]]
     selected_model_name = st.selectbox("🔍 Chọn mô hình đã huấn luyện:", model_names)
-
-    selected_model = next(model["model"] for model in st.session_state["models"] if model["name"] == selected_model_name)
+    selected_model = next(model["model"] for model in st.session_state["clustering_models"] if model["name"] == selected_model_name)
 
     # Chọn phương thức nhập ảnh
     input_option = st.radio("🖼 Chọn phương thức nhập:", ["Tải lên ảnh", "Vẽ số"], 
