@@ -23,11 +23,11 @@ def mlflow_input():
     mlflow.set_experiment("Regression_Experiment")
 
 
-def train_model(X_train, y_train, X_valid, y_valid, model_type='multiple', degree=2):
+def train_model(X_train, y_train, X_valid, y_valid, model_type='multiple', degree=2, run_name=None):
     """
     Hàm huấn luyện mô hình hồi quy và log kết quả vào MLflow.
     """
-    with mlflow.start_run():
+    with mlflow.start_run(run_name=run_name):
         if model_type == 'multiple':
             model = LinearRegression()
             poly = None
@@ -84,56 +84,61 @@ def display():
         target_col = st.selectbox("Chọn cột mục tiêu", df.columns)
 
         if target_col:
-            # Chia tỷ lệ train/test
-            col1, col2 = st.columns(2)
-            with col1:
-                train_size = st.slider("🔹 Chọn tỷ lệ dữ liệu Train (%)", min_value=0, max_value=100, step=1, value=70, key="train_size")
-            test_size = max(1, 100 - train_size)  # Đảm bảo test_size luôn >= 1
+            # Chọn tỷ lệ tập Test
+            test_size = st.slider("🔹 Chọn tỷ lệ dữ liệu Test (%)", min_value=0, max_value=50, step=1, value=20)
+            
+            # Chọn tỷ lệ tập Validation
+            val_size = st.slider("🔸 Chọn tỷ lệ dữ liệu Validation (%)", min_value=0, max_value=50, step=1, value=15)
 
-            if train_size == 0 or train_size == 100:
-                st.error("🚨 Train/Test không được bằng 0% hoặc 100%. Hãy chọn lại.")
+            # Tính tỷ lệ tập Train
+            train_size = 100 - test_size - val_size
+
+            # Kiểm tra nếu tỷ lệ không hợp lệ
+            if train_size <= 0:
+                st.error("🚨 Tổng Test + Validation không được vượt quá 100%. Hãy chọn lại.")
                 st.stop()
 
-            # Chia dữ liệu thành train/test
+            # Chia dữ liệu thành Train/Test
             X = df.drop(columns=[target_col])
             y = df[target_col]
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size / 100, random_state=42)
 
-            # Hiển thị kích thước train/test
-            st.write(f"📌 **Tập Train:** {train_size}% ({X_train.shape[0]} mẫu)")
-            st.write(f"📌 **Tập Test:** {test_size}% ({X_test.shape[0]} mẫu)")
-
-            # Chia tiếp tập train thành train/val
-            val_size = st.slider("🔸 Chọn tỷ lệ Validation (%) (trên tập Train)", min_value=0, max_value=100, step=1, value=20, key="val_size")
-            val_ratio = val_size / 100  # Tính phần trăm validation từ tập train
-            train_final_size = 1 - val_ratio  # Phần còn lại là train
-
-            if val_size == 100:
-                st.error("🚨 Tập train không thể có 0 mẫu, hãy giảm Validation %.")
-                st.stop()
-
-            # Chia train thành train/val
+            # Chia tiếp Train thành Train/Validation
+            val_ratio = val_size / (train_size + val_size)  # Tỷ lệ Validation trên tổng Train + Validation
             X_train_final, X_val, y_train_final, y_val = train_test_split(X_train, y_train, test_size=val_ratio, random_state=42)
 
             # Hiển thị kích thước train/val/test
             st.subheader("📊 Kích thước các tập dữ liệu")
-            st.write(f"📌 **Tập Train Cuối:** {round(train_final_size * train_size, 2)}% ({X_train_final.shape[0]} mẫu)")
-            st.write(f"📌 **Tập Validation:** {round(val_size * train_size / 100, 2)}% ({X_val.shape[0]} mẫu)")
+            st.write(f"📌 **Tập Train:** {train_size}% ({X_train_final.shape[0]} mẫu)")
+            st.write(f"📌 **Tập Validation:** {val_size}% ({X_val.shape[0]} mẫu)")
             st.write(f"📌 **Tập Test:** {test_size}% ({X_test.shape[0]} mẫu)")
 
             # Chọn loại mô hình
             model_type = st.selectbox("Chọn loại mô hình", ["multiple", "polynomial"])
             degree = st.slider("Bậc của hồi quy đa thức", 2, 5, 2) if model_type == "polynomial" else None
 
+            # Đặt tên cho mô hình
+            model_name = st.text_input("Đặt tên cho mô hình (tùy chọn)")
+
             # Huấn luyện mô hình
             if st.button("Huấn luyện mô hình"):
+                if not model_name:
+                    st.error("🚨 Vui lòng đặt tên cho mô hình.")
+                    return
+
                 model, train_precision, valid_precision, train_f1, valid_f1, train_recall, valid_recall, poly = train_model(
-                    X_train_final, y_train_final, X_val, y_val, model_type=model_type, degree=degree
+                    X_train_final, y_train_final, X_val, y_val, model_type=model_type, degree=degree, run_name=model_name
                 )
 
-                # Lưu model và poly vào session_state để sử dụng sau
-                st.session_state.model = model
-                st.session_state.poly = poly
+                # Lưu mô hình vào danh sách
+                if 'models' not in st.session_state:
+                    st.session_state.models = {}
+                st.session_state.models[model_name] = {
+                    "model": model,
+                    "poly": poly,
+                    "model_type": model_type,
+                    "degree": degree
+                }
 
                 # Hiển thị kết quả huấn luyện
                 st.write("Kết quả huấn luyện:")
@@ -145,9 +150,39 @@ def display():
                 st.write(f"- Validation Recall: {valid_recall:.2f}")
 
 
+import numpy as np
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
+
 def predict():
     st.subheader("📝 Nhập thông tin dự đoán")
     
+    # Kiểm tra xem có mô hình nào đã được huấn luyện không
+    if 'models' not in st.session_state or not st.session_state.models:
+        st.error("🚨 Vui lòng huấn luyện ít nhất một mô hình trước khi dự đoán.")
+        return
+
+    # Chọn mô hình từ danh sách
+    model_names = list(st.session_state.models.keys())
+    selected_model_name = st.selectbox("Chọn mô hình đã huấn luyện", model_names)
+
+    # Lấy thông tin mô hình đã chọn
+    selected_model = st.session_state.models[selected_model_name]
+    model = selected_model["model"]
+    poly = selected_model["poly"]
+    model_type = selected_model["model_type"]
+    degree = selected_model.get("degree", None)
+
+    # Hiển thị thông tin mô hình
+    st.write("### Thông tin mô hình đã chọn:")
+    st.write(f"- Tên mô hình: {selected_model_name}")
+    st.write(f"- Loại mô hình: {model_type}")
+    if model_type == "polynomial":
+        st.write(f"- Bậc đa thức: {degree}")
+
     # Tạo các trường nhập liệu
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -163,29 +198,31 @@ def predict():
 
     # Nút dự đoán
     if st.button("Dự đoán"):
-        if 'model' not in st.session_state or st.session_state.model is None:
-            st.error("🚨 Vui lòng huấn luyện mô hình trước khi dự đoán.")
-        else:
-            # Xử lý dữ liệu đầu vào
-            sex = 1 if sex == "male" else 0
-            embarked = {"C": 0, "S": 1, "Q": 2}[embarked]
-            input_data = np.array([[pclass, sex, age, sibsp, embarked, fare, parch]])
+        # Xử lý dữ liệu đầu vào
+        sex = 1 if sex == "male" else 0
+        embarked = {"C": 0, "S": 1, "Q": 2}[embarked]
+        input_data = np.array([[pclass, sex, age, sibsp, embarked, fare, parch]])
 
-            # Biến đổi dữ liệu nếu là mô hình đa thức
-            if 'poly' in st.session_state and st.session_state.poly:
-                input_data = st.session_state.poly.transform(input_data)
+        # Biến đổi dữ liệu nếu là mô hình đa thức
+        if model_type == "polynomial" and poly is not None:
+            input_data = poly.transform(input_data)
 
-            # Dự đoán
-            prediction = st.session_state.model.predict(input_data)
-            prediction_binary = 1 if prediction[0] >= 0.5 else 0  # Chuyển đổi thành nhị phân
-            result = "Sống" if prediction_binary == 1 else "Chết"
-            st.success(f"**Dự đoán:** {result}")
+        prediction = model.predict(input_data)[0]
+        prediction = sigmoid(prediction)  # Đưa về khoảng [0, 1]
+
+        prediction_binary = 1 if prediction >= 0.5 else 0
+        confidence = round(abs(prediction - 0.5) * 200, 2)
+
+        result = "Sống" if prediction_binary == 1 else "Chết"
+        st.success(f"**Dự đoán:** {result}  \n🔍 **Độ tin cậy:** {confidence}%")
 
 
 def show_experiment_selector():
-    st.title("📊 MLflow Experiments - DAGsHub")
+    st.title("📊 MLflow Experiments")
 
     experiment_name = "Regression_Experiment"
+    
+    # Lấy danh sách experiment
     experiments = mlflow.search_experiments()
     selected_experiment = next((exp for exp in experiments if exp.name == experiment_name), None)
 
@@ -198,6 +235,7 @@ def show_experiment_selector():
     st.write(f"**Trạng thái:** {'Active' if selected_experiment.lifecycle_stage == 'active' else 'Deleted'}")
     st.write(f"**Vị trí lưu trữ:** {selected_experiment.artifact_location}")
 
+    # Lấy danh sách runs trong experiment
     runs = mlflow.search_runs(experiment_ids=[selected_experiment.experiment_id])
 
     if runs.empty:
@@ -206,31 +244,26 @@ def show_experiment_selector():
 
     st.write("### 🏃‍♂️ Các Runs gần đây:")
 
-    run_info = []
+    # Tạo danh sách run name và map với run_id
+    run_dict = {}
     for _, run in runs.iterrows():
-        run_id = run["run_id"]
-        run_params = mlflow.get_run(run_id).data.params
-        run_name = run_params.get("run_name", f"Run {run_id[:8]}")
-        run_info.append((run_name, run_id))
+        run_name = run.get("tags.mlflow.runName", f"Run {run['run_id'][:8]}")
+        run_dict[run_name] = run["run_id"]  # Map run_name -> run_id
 
-    run_name_to_id = dict(run_info)
-    run_names = list(run_name_to_id.keys())
+    # Chọn run theo tên
+    selected_run_name = st.selectbox("🔍 Chọn một run:", list(run_dict.keys()), key="runname")
+    selected_run_id = run_dict[selected_run_name]
 
-    selected_run_name = st.selectbox("🔍 Chọn một run:", run_names)
-    selected_run_id = run_name_to_id[selected_run_name]
-
+    # Lấy thông tin của run đã chọn
     selected_run = mlflow.get_run(selected_run_id)
 
     if selected_run:
         st.subheader(f"📌 Thông tin Run: {selected_run_name}")
         st.write(f"**Run ID:** {selected_run_id}")
         st.write(f"**Trạng thái:** {selected_run.info.status}")
+        
         start_time_ms = selected_run.info.start_time
-
-        if start_time_ms:
-            start_time = datetime.fromtimestamp(start_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            start_time = "Không có thông tin"
+        start_time = datetime.fromtimestamp(start_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S") if start_time_ms else "Không có thông tin"
 
         st.write(f"**Thời gian chạy:** {start_time}")
 
@@ -245,7 +278,6 @@ def show_experiment_selector():
             st.write("### 📊 Metrics:")
             st.json(metrics)
 
-        dataset_path = f"{selected_experiment.artifact_location}/{selected_run_id}/artifacts/dataset.csv"
     else:
         st.warning("⚠ Không tìm thấy thông tin cho run này.")
 
@@ -263,6 +295,11 @@ def LinearRegressionApp():
         predict()  # Gọi hàm dự đoán
     with tab4:
         show_experiment_selector()
+
+
+def LinearApp():
+    mlflow_input()
+    LinearRegressionApp()
 
 
 if __name__ == "__main__":

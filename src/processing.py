@@ -92,9 +92,9 @@ def display():
         st.write(st.session_state.df.head())
 
     # **Bước 3: Mã hóa dữ liệu**
-    st.write("### 3️⃣ Mã hóa dữ liệu")
+    st.write("### 3️⃣ Thay đổi kiểu dữ liệu")
     encoding_cols = df.select_dtypes(include=['object']).columns.tolist()
-    selected_col = st.selectbox("Chọn cột để mã hóa", [None] + encoding_cols, key="encoding_col")
+    selected_col = st.selectbox("Chọn cột để Thay đổi kiểu dữ liệu", [None] + encoding_cols, key="encoding_col")
 
     if selected_col:
         unique_values = df[selected_col].unique()  # Lấy giá trị duy nhất
@@ -137,43 +137,34 @@ def display():
         col1, col2 = st.columns(2)
 
         with col1:
-            train_size = st.slider("🔹 Chọn tỷ lệ dữ liệu Train (%)", min_value=0, max_value=100, step=1, value=70, key="train_size")
-        test_size = 100 - train_size  # Phần còn lại cho test
+            test_size = st.slider("🔹 Chọn tỷ lệ dữ liệu Test (%)", min_value=0, max_value=50, step=1, value=20, key="test_size")
+        with col2:
+            val_size = st.slider("🔸 Chọn tỷ lệ dữ liệu Validation (%)", min_value=0, max_value=50, step=1, value=15, key="val_size")
 
-        if train_size == 0 or train_size == 100:
-            st.error("🚨 Train/Test không được bằng 0% hoặc 100%. Hãy chọn lại.")
+        # Tính tỷ lệ Train
+        train_size = 100 - test_size - val_size
+
+        # Kiểm tra nếu tổng Test + Validation vượt quá 100%
+        if train_size <= 0:
+            st.error("🚨 Tổng Test + Validation không được vượt quá 100%. Hãy chọn lại.")
             st.stop()
 
+        # Chia tập Train/Test
         X = df.drop(columns=[target_col])
         y = df[target_col]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size / 100, random_state=42)
 
-        # Chia tập train & test
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-        # Hiển thị kích thước train/test
-        st.write(f"📌 **Tập Train:** {train_size}% ({X_train.shape[0]} mẫu)")
-        st.write(f"📌 **Tập Test:** {test_size}% ({X_test.shape[0]} mẫu)")
-
-        # **Chia tiếp tập train thành train/val**
-        val_size = st.slider("🔸 Chọn tỷ lệ Validation (%) (trên tập Train)", min_value=0, max_value=100, step=1, value=20, key="val_size")
-        
-        val_ratio = val_size / 100  # Tính phần trăm validation từ tập train
-        train_final_size = 1 - val_ratio  # Phần còn lại là train
-
-        if val_size == 100:
-            st.error("🚨 Tập train không thể có 0 mẫu, hãy giảm Validation %.")  
-            st.stop()
-
-        # Chia train thành train/val
+        # Chia tiếp tập Train thành Train/Validation
+        val_ratio = val_size / (train_size + val_size)  # Tỷ lệ Validation trên tổng Train + Validation
         X_train_final, X_val, y_train_final, y_val = train_test_split(X_train, y_train, test_size=val_ratio, random_state=42)
 
-        # Hiển thị kích thước train/val/test
+        # Hiển thị kích thước Train/Validation/Test
         st.subheader("📊 Kích thước các tập dữ liệu")
-        st.write(f"📌 **Tập Train Cuối:** {round(train_final_size * train_size, 2)}% ({X_train_final.shape[0]} mẫu)")
-        st.write(f"📌 **Tập Validation:** {round(val_size * train_size / 100, 2)}% ({X_val.shape[0]} mẫu)")
+        st.write(f"📌 **Tập Train:** {train_size}% ({X_train_final.shape[0]} mẫu)")
+        st.write(f"📌 **Tập Validation:** {val_size}% ({X_val.shape[0]} mẫu)")
         st.write(f"📌 **Tập Test:** {test_size}% ({X_test.shape[0]} mẫu)")
 
-        # Hiển thị dataframes từng tập
+        # Hiển thị dữ liệu các tập
         with st.expander("📂 Xem dữ liệu Train"):
             st.write(X_train_final.head())
         with st.expander("📂 Xem dữ liệu Validation"):
@@ -181,7 +172,7 @@ def display():
         with st.expander("📂 Xem dữ liệu Test"):
             st.write(X_test.head())
 
-        # Lưu vào session_state
+        # Lưu vào session_state để sử dụng tiếp
         st.session_state.X_train_final = X_train_final
         st.session_state.X_val = X_val
         st.session_state.y_train_final = y_train_final

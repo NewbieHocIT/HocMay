@@ -1,17 +1,14 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
-from PIL import Image, ImageOps
-import joblib
+from PIL import Image
+from sklearn.model_selection import KFold
 import pandas as pd
 import os
 import mlflow
-from mlflow.tracking import MlflowClient
 from datetime import datetime
 from sklearn.model_selection import cross_val_score
 from sklearn.datasets import fetch_openml
@@ -73,69 +70,83 @@ def plot_tree_metrics():
 
     st.subheader("Độ chính xác theo chiều sâu cây quyết định")
     st.line_chart(data.set_index('Tree Depth'))
-def split_data():
-    st.title("📌 Chia dữ liệu Train/Validation/Test")
+import streamlit as st
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
 
+def load_mnist():
     # Tải dữ liệu MNIST
-    X, y = load_mnist()
+    mnist = fetch_openml('mnist_784', version=1)
+    X, y = mnist["data"], mnist["target"]
+    y = y.astype(np.uint8)
+    return X, y
+
+def split_data():
+    st.title("📌 Chia dữ liệu Train/Test")
+
+    # Đọc dữ liệu
+    X, y = load_mnist() 
     total_samples = X.shape[0]
 
-    num_samples = st.slider(
-        "Chọn số lượng ảnh để train (⚠️ Số lượng lớn sẽ lâu hơn):", 
-        1000, total_samples, 10000, 
-        key="classification_num_samples_slider"  # Thêm key duy nhất
-    )
-    st.session_state.total_samples = num_samples
-
-    # Chọn tỉ lệ cho tập train và validation
-    train_ratio = st.slider(
-        "📌 Chọn % dữ liệu Train", 
-        50, 90, 70, 
-        key="classification_train_ratio_slider"  # Thêm key duy nhất
-    )
-    val_ratio = st.slider(
-        "📌 Chọn % dữ liệu Validation", 
-        10, 40, 15, 
-        key="classification_val_ratio_slider"  # Thêm key duy nhất
-    )
-    test_ratio = 100 - train_ratio - val_ratio
-
-    if test_ratio < 10:
-        st.warning("⚠️ Tỉ lệ dữ liệu Test quá thấp (dưới 10%). Hãy điều chỉnh lại tỉ lệ Train và Validation.")
-    else:
-        st.write(f"📌 **Tỷ lệ phân chia:** Train={train_ratio}%, Validation={val_ratio}%, Test={test_ratio}%")
     
-    if st.button("✅ Xác nhận & Lưu", key="classification_confirm_button"):  # Thêm key duy nhất
-        X_selected, _, y_selected, _ = train_test_split(X, y, train_size=num_samples, stratify=y, random_state=42)
+    # Nếu chưa có cờ "data_split_done", đặt mặc định là False
+    if "data_split_done" not in st.session_state:
+        st.session_state.data_split_done = False  
 
-        stratify_option = y_selected if len(np.unique(y_selected)) > 1 else None
-        X_train_full, X_test, y_train_full, y_test = train_test_split(
-            X_selected, y_selected, test_size=test_ratio/100, stratify=stratify_option, random_state=42
+    # Thanh kéo chọn số lượng ảnh để train
+    num_samples = st.slider("📌 Chọn số lượng ảnh để train:", 1000, total_samples, 10000)
+    
+    # Thanh kéo chọn tỷ lệ Train/Test
+    test_size = st.slider("📌 Chọn % dữ liệu Test", 10, 50, 20)
+    remaining_size = 100 - test_size
+    val_size = st.slider("📌 Chọn % dữ liệu Validation (trong phần Train)", 0, 50, 15)
+    st.write(f"📌 **Tỷ lệ phân chia:** Test={test_size}%, Validation={val_size}%, Train={remaining_size - val_size}%")
+
+    if st.button("✅ Xác nhận & Lưu",key="luu") and not st.session_state.data_split_done:
+        st.session_state.data_split_done = True  # Đánh dấu đã chia dữ liệu
+        
+        # Chia dữ liệu theo tỷ lệ đã chọn
+        X_selected, _, y_selected, _ = train_test_split(
+            X, y, train_size=num_samples, stratify=y, random_state=42
         )
 
+        # Chia train/test
+        stratify_option = y_selected if len(np.unique(y_selected)) > 1 else None
+        X_train_full, X_test, y_train_full, y_test = train_test_split(
+            X_selected, y_selected, test_size=test_size/100, stratify=stratify_option, random_state=42
+        )
+
+        # Chia train/val
         stratify_option = y_train_full if len(np.unique(y_train_full)) > 1 else None
         X_train, X_val, y_train, y_val = train_test_split(
-            X_train_full, y_train_full, test_size=val_ratio / (train_ratio + val_ratio),
+            X_train_full, y_train_full, test_size=val_size / (100 - test_size),
             stratify=stratify_option, random_state=42
         )
 
-        st.session_state.X_train = X_train
-        st.session_state.X_val = X_val
-        st.session_state.X_test = X_test
-        st.session_state.y_train = y_train
-        st.session_state.y_val = y_val
-        st.session_state.y_test = y_test
+        # Lưu dữ liệu vào session_state
+        st.session_state.total_samples= num_samples
+        st.session_state["classification_X_train"] = X_train
+        st.session_state["classification_X_val"] = X_val
+        st.session_state["classification_X_test"] = X_test
+        st.session_state["classification_y_train"] = y_train
+        st.session_state["classification_y_val"] = y_val
+        st.session_state["classification_y_test"] = y_test
         st.session_state.test_size = X_test.shape[0]
         st.session_state.val_size = X_val.shape[0]
         st.session_state.train_size = X_train.shape[0]
-    
+
+        # Hiển thị thông tin chia dữ liệu
         summary_df = pd.DataFrame({
             "Tập dữ liệu": ["Train", "Validation", "Test"],
             "Số lượng mẫu": [X_train.shape[0], X_val.shape[0], X_test.shape[0]]
         })
         st.success("✅ Dữ liệu đã được chia thành công!")
         st.table(summary_df)
-        
+
+    elif st.session_state.data_split_done:
+        st.info("✅ Dữ liệu đã được chia.")
 def mlflow_input():
     DAGSHUB_MLFLOW_URI = "https://dagshub.com/NewbieHocIT/MocMayvsPython.mlflow"
     st.session_state['mlflow_url'] = DAGSHUB_MLFLOW_URI
@@ -148,19 +159,27 @@ def mlflow_input():
 
 def train():
     mlflow_input()
-    if "X_train" in st.session_state:
-        X_train = st.session_state.X_train 
-        X_val = st.session_state.X_val 
-        X_test = st.session_state.X_test 
-        y_train = st.session_state.y_train 
-        y_val = st.session_state.y_val 
-        y_test = st.session_state.y_test 
-    else:
+
+    # Kiểm tra xem dữ liệu đã được chia chưa (sử dụng tiền tố "classification_")
+    if (
+        "classification_X_train" not in st.session_state
+        or "classification_X_val" not in st.session_state
+        or "classification_X_test" not in st.session_state
+    ):
         st.error("⚠️ Chưa có dữ liệu! Hãy chia dữ liệu trước.")
         return
 
-    X_train = X_train.reshape(-1, 28 * 28) / 255.0
-    X_test = X_test.reshape(-1, 28 * 28) / 255.0
+    # Lấy dữ liệu từ session_state
+    X_train = st.session_state["classification_X_train"]
+    X_val = st.session_state["classification_X_val"]
+    X_test = st.session_state["classification_X_test"]
+    y_train = st.session_state["classification_y_train"]
+    y_val = st.session_state["classification_y_val"]
+    y_test = st.session_state["classification_y_test"]
+
+    # Chuyển đổi DataFrame thành numpy array trước khi reshape
+    X_train = X_train.to_numpy().reshape(-1, 28 * 28) / 255.0
+    X_test = X_test.to_numpy().reshape(-1, 28 * 28) / 255.0
 
     st.header("⚙️ Chọn mô hình & Huấn luyện")
 
@@ -176,6 +195,11 @@ def train():
         - **Tham số cần chọn:**  
             - **max_depth**: Giới hạn độ sâu tối đa của cây.  
         """)
+        criterion = st.selectbox(
+        "Chọn tiêu chuẩn phân nhánh (criterion):", 
+        ["gini", "entropy"], 
+        key="classification_criterion_selectbox"  # Thêm key duy nhất
+    )
         max_depth = st.slider(
             "max_depth", 
             1, 20, 5, 
@@ -218,21 +242,49 @@ def train():
             mlflow.log_param("val_size", st.session_state.val_size)
             mlflow.log_param("train_size", st.session_state.train_size)
             mlflow.log_param("num_samples", st.session_state.total_samples)
-            st.write("⏳ Đang chạy Cross-Validation...")
+
+            progress_bar = st.progress(0)  # Thanh tiến trình
+            status_text = st.empty()  # Hiển thị trạng thái từng bước
+
+            # Bước 1: Cross-Validation
+            status_text.text("⏳ Đang chạy Cross Validation...")
+            progress_bar.progress(10)
+
             cv_scores = cross_val_score(model, X_train, y_train, cv=n_folds)
             mean_cv_score = cv_scores.mean()
             std_cv_score = cv_scores.std()
-            
-            st.success(f"📊 **Cross-Validation Accuracy**: {mean_cv_score:.4f}")
+
+            status_text.text(f"✅ Cross-Validation hoàn tất! 📊 Độ chính xác trung bình: {mean_cv_score:.4f}")
+            st.info(f"📊 **Cross-Validation Accuracy**: {mean_cv_score:.4f} ± {std_cv_score:.4f}")
+            progress_bar.progress(40)
+
+            # Bước 2: Huấn luyện mô hình
+            status_text.text("🛠️ Đang huấn luyện mô hình...")
+            progress_bar.progress(60)
 
             model.fit(X_train, y_train)
+
+            status_text.text("✅ Huấn luyện hoàn tất!")
+            progress_bar.progress(70)
+
+            # Bước 3: Kiểm tra trên test set
+            status_text.text("📊 Đang đánh giá mô hình trên test set...")
             y_pred = model.predict(X_test)
             acc = accuracy_score(y_test, y_pred)
 
-            st.success(f"✅ Độ chính xác trên test set: {acc:.4f}")
+            st.success(f"✅ **Độ chính xác trên test set**: {acc:.4f}")
+            progress_bar.progress(80)
 
+            # Bước 4: Logging với MLflow
+            status_text.text("📝 Đang ghi log vào MLflow...")
+            mlflow.log_param("test_size", st.session_state.test_size)
+            mlflow.log_param("val_size", st.session_state.val_size)
+            mlflow.log_param("train_size", st.session_state.train_size)
+            mlflow.log_param("num_samples", st.session_state.total_samples)
+            
             mlflow.log_param("model", model_choice)
             if model_choice == "Decision Tree":
+                mlflow.log_param("criterion", criterion)
                 mlflow.log_param("max_depth", max_depth)
             elif model_choice == "SVM":
                 mlflow.log_param("C", C)
@@ -243,40 +295,49 @@ def train():
             mlflow.log_metric("cv_accuracy_std", std_cv_score)
             mlflow.sklearn.log_model(model, model_choice.lower())
 
-        if "models" not in st.session_state:
-            st.session_state["models"] = []
+            status_text.text("✅ Huấn luyện và logging hoàn tất!")
+            if "models" not in st.session_state:
+                st.session_state["models"] = []
 
-        model_name = model_choice.lower().replace(" ", "_")
-        if model_choice == "SVM":
-            model_name += f"_{kernel}"
+            model_name = model_choice.lower().replace(" ", "_")
+            if model_choice == "SVM":
+                model_name += f"_{kernel}"
 
-        existing_model = next((item for item in st.session_state["models"] if item["name"] == model_name), None)
+            existing_model = next((item for item in st.session_state["models"] if item["name"] == model_name), None)
 
-        if existing_model:
-            count = 1
-            new_model_name = f"{model_name}_{count}"
-            while any(item["name"] == new_model_name for item in st.session_state["models"]):
-                count += 1
+            if existing_model:
+                count = 1
                 new_model_name = f"{model_name}_{count}"
-            model_name = new_model_name
-            st.warning(f"⚠️ Mô hình được lưu với tên: {model_name}")
+                while any(item["name"] == new_model_name for item in st.session_state["models"]):
+                    count += 1
+                    new_model_name = f"{model_name}_{count}"
+                model_name = new_model_name
+                st.warning(f"⚠️ Mô hình được lưu với tên: {model_name}")
 
-        st.session_state["models"].append({"name": model_name, "model": model})
-        st.write(f"🔹 Mô hình đã được lưu với tên: {model_name}")
-        st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['models'])}")
+            st.session_state["models"].append({"name": model_name, "model": model})
+            st.write(f"🔹 Mô hình đã được lưu với tên: {model_name}")
+            st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['models'])}")
 
-        st.write("📋 Danh sách các mô hình đã lưu:")
-        model_names = [model["name"] for model in st.session_state["models"]]
-        st.write(", ".join(model_names))
+            st.write("📋 Danh sách các mô hình đã lưu:")
+            model_names = [model["name"] for model in st.session_state["models"]]
+            st.write(", ".join(model_names))
 
-        st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
-        st.markdown(f"🔗 [Truy cập MLflow UI]({st.session_state['mlflow_url']})")
+            st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
+
+
+            progress_bar.progress(100)
+
+
+
+
+from datetime import datetime
 
 def show_experiment_selector():
     st.title("📊 MLflow Experiments")
 
     experiment_name = "Classification"
     
+    # Lấy danh sách experiment
     experiments = mlflow.search_experiments()
     selected_experiment = next((exp for exp in experiments if exp.name == experiment_name), None)
 
@@ -289,6 +350,7 @@ def show_experiment_selector():
     st.write(f"**Trạng thái:** {'Active' if selected_experiment.lifecycle_stage == 'active' else 'Deleted'}")
     st.write(f"**Vị trí lưu trữ:** {selected_experiment.artifact_location}")
 
+    # Lấy danh sách runs trong experiment
     runs = mlflow.search_runs(experiment_ids=[selected_experiment.experiment_id])
 
     if runs.empty:
@@ -297,31 +359,26 @@ def show_experiment_selector():
 
     st.write("### 🏃‍♂️ Các Runs gần đây:")
 
-    run_info = []
+    # Tạo danh sách run name và map với run_id
+    run_dict = {}
     for _, run in runs.iterrows():
-        run_id = run["run_id"]
-        run_params = mlflow.get_run(run_id).data.params
-        run_name = run_params.get("run_name", f"Run {run_id[:8]}")
-        run_info.append((run_name, run_id))
+        run_name = run.get("tags.mlflow.runName", f"Run {run['run_id'][:8]}")
+        run_dict[run_name] = run["run_id"]  # Map run_name -> run_id
 
-    run_name_to_id = dict(run_info)
-    run_names = list(run_name_to_id.keys())
+    # Chọn run theo tên
+    selected_run_name = st.selectbox("🔍 Chọn một run:", list(run_dict.keys()),key="runname")
+    selected_run_id = run_dict[selected_run_name]
 
-    selected_run_name = st.selectbox("🔍 Chọn một run:", run_names)
-    selected_run_id = run_name_to_id[selected_run_name]
-
+    # Lấy thông tin của run đã chọn
     selected_run = mlflow.get_run(selected_run_id)
 
     if selected_run:
         st.subheader(f"📌 Thông tin Run: {selected_run_name}")
         st.write(f"**Run ID:** {selected_run_id}")
         st.write(f"**Trạng thái:** {selected_run.info.status}")
+        
         start_time_ms = selected_run.info.start_time
-
-        if start_time_ms:
-            start_time = datetime.fromtimestamp(start_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            start_time = "Không có thông tin"
+        start_time = datetime.fromtimestamp(start_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S") if start_time_ms else "Không có thông tin"
 
         st.write(f"**Thời gian chạy:** {start_time}")
 
@@ -336,44 +393,95 @@ def show_experiment_selector():
             st.write("### 📊 Metrics:")
             st.json(metrics)
 
-        dataset_path = f"{selected_experiment.artifact_location}/{selected_run_id}/artifacts/dataset.csv"
     else:
         st.warning("⚠ Không tìm thấy thông tin cho run này.")
+
+
+import streamlit as st
+import numpy as np
+import random
+from PIL import Image, ImageOps
+from streamlit_drawable_canvas import st_canvas
+
+def preprocess_image(image):
+    """Xử lý ảnh đầu vào: Chuyển về grayscale, resize, chuẩn hóa"""
+    image = image.convert("L")
+    image = image.resize((28, 28))  # Resize về kích thước phù hợp
+    img_array = np.array(image) / 255.0  # Chuẩn hóa pixel về [0,1]
+    return img_array.reshape(1, -1)  # Chuyển thành vector 1D
+
 
 def du_doan():
     st.title("🔢 Dự đoán chữ số viết tay")
 
+    # Kiểm tra xem đã có mô hình chưa
     if "models" not in st.session_state or not st.session_state["models"]:
         st.error("⚠️ Chưa có mô hình nào được huấn luyện. Hãy huấn luyện mô hình trước.")
         return
 
+    # Chọn mô hình
     model_names = [model["name"] for model in st.session_state["models"]]
-    selected_model_name = st.selectbox(
-        "🔍 Chọn mô hình đã huấn luyện:", 
-        model_names, 
-        key="classification_model_selectbox"  # Thêm key duy nhất
-    )
+    selected_model_name = st.selectbox("🔍 Chọn mô hình đã huấn luyện:", model_names)
     selected_model = next(model["model"] for model in st.session_state["models"] if model["name"] == selected_model_name)
 
-    uploaded_file = st.file_uploader(
-        "📤 Tải lên ảnh chữ số viết tay (28x28 pixel)", 
-        type=["png", "jpg", "jpeg"], 
-        key="classification_file_uploader"  # Thêm key duy nhất
-    )
+    # Chọn cách nhập ảnh: Tải lên hoặc Vẽ
+    option = st.radio("📌 Chọn cách nhập ảnh:", ["🖼️ Tải ảnh lên", "✍️ Vẽ số"],key="input_option_radio")
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file).convert("L")
-        image = ImageOps.invert(image)
-        image = image.resize((28, 28))
-        st.image(image, caption="Ảnh đã tải lên", use_column_width=True)
+    img_array = None  # Khởi tạo ảnh đầu vào
 
-        img_array = np.array(image).reshape(1, -1) / 255.0
-        prediction = selected_model.predict(img_array)
-        st.success(f"🔢 Dự đoán: **{prediction[0]}**")
+    # 1️⃣ 🖼️ Nếu tải ảnh lên
+    if option == "🖼️ Tải ảnh lên":
+        uploaded_file = st.file_uploader("📤 Tải ảnh chữ số viết tay (28x28 pixel)", type=["png", "jpg", "jpeg"],key="upfile")
+        if uploaded_file:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Ảnh đã tải lên", use_container_width=True)
+            img_array = preprocess_image(image)  # Xử lý ảnh
+
+    # 2️⃣ ✍️ Nếu vẽ số
+    else:
+        st.write("🎨 Vẽ số trong khung dưới đây:")
+        
+        # Canvas để vẽ
+        canvas_result = st_canvas(
+            fill_color="black",  # Màu nền
+            stroke_width=10,
+            stroke_color="black",
+            background_color="white",
+            height=250,
+            width=250,
+            drawing_mode="freedraw",
+            key="canvas_draw"
+        )
+
+        # Khi người dùng bấm "Dự đoán"
+        if st.button("Dự đoán số",key="dudoan"):
+            if canvas_result.image_data is not None:
+                # Chuyển đổi ảnh từ canvas thành định dạng PIL
+                image = Image.fromarray((canvas_result.image_data[:, :, :3]).astype(np.uint8))
+                img_array = preprocess_image(image)  # Xử lý ảnh
+            else:
+                st.error("⚠️ Hãy vẽ một số trước khi dự đoán!")
+
+    # 🔍 Dự đoán nếu có ảnh đầu vào hợp lệ
+    if img_array is not None:
+        prediction = selected_model.predict(img_array)[0]
+        probabilities = selected_model.predict_proba(img_array)[0]  # Lấy toàn bộ xác suất của các lớp
+
+        # 🏆 Hiển thị kết quả dự đoán
+        st.success(f"🔢 Dự đoán: **{prediction}**")
+
+        # 📊 Hiển thị toàn bộ độ tin cậy theo từng lớp
+        st.write("### 🔢 Độ tin cậy :")
+
+        # 📊 Vẽ biểu đồ độ tin cậy
+        st.bar_chart(probabilities)
+
+
+
+
 
 def Classification():
     st.title("🖊️ MNIST Classification App")
-
     tab1, tab2, tab3, tab4 = st.tabs(["📘 Data", "⚙️ Huấn luyện", "🔢 Dự đoán", "🔥Mlflow"])
 
     with tab1:
