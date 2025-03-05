@@ -337,8 +337,6 @@ def show_experiment_selector():
             st.json(metrics)
 
         dataset_path = f"{selected_experiment.artifact_location}/{selected_run_id}/artifacts/dataset.csv"
-        st.write("### 📂 Dataset:")
-        st.write(f"📥 [Tải dataset]({dataset_path})")
     else:
         st.warning("⚠ Không tìm thấy thông tin cho run này.")
 
