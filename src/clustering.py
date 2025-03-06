@@ -1,21 +1,16 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from PIL import Image, ImageOps
-import pandas as pd
 import os
 import mlflow
 from datetime import datetime
 from sklearn.datasets import fetch_openml
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
 def load_mnist():
-    mnist = fetch_openml('mnist_784', version=1, as_frame=False)
-    X = mnist.data
+    X = np.load("data/mnist/X.npy")
     return X
 
 def data():

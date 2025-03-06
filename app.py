@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import pandas as pd
-import shutil
 from src import Classification
 from src import clustering
 import mlflow

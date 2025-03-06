@@ -5,7 +5,6 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from PIL import Image
-from sklearn.model_selection import KFold
 import pandas as pd
 import os
 import mlflow
@@ -14,8 +13,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn.datasets import fetch_openml
 # Load dữ liệu MNIST
 def load_mnist():
-    mnist = fetch_openml('mnist_784', version=1, as_frame=False)
-    X, y = mnist.data, mnist.target.astype(int)
+    X = np.load("data/mnist/X.npy")
+    y = np.load("data/mnist/y.npy")
     return X, y
 
 def data():
@@ -76,12 +75,6 @@ import pandas as pd
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 
-def load_mnist():
-    # Tải dữ liệu MNIST
-    mnist = fetch_openml('mnist_784', version=1)
-    X, y = mnist["data"], mnist["target"]
-    y = y.astype(np.uint8)
-    return X, y
 
 def split_data():
     st.title("📌 Chia dữ liệu Train/Test")
@@ -178,8 +171,8 @@ def train():
     y_test = st.session_state["classification_y_test"]
 
     # Chuyển đổi DataFrame thành numpy array trước khi reshape
-    X_train = X_train.to_numpy().reshape(-1, 28 * 28) / 255.0
-    X_test = X_test.to_numpy().reshape(-1, 28 * 28) / 255.0
+    X_train = X_train.reshape(-1, 28 * 28) / 255.0
+    X_test = X_test.reshape(-1, 28 * 28) / 255.0
 
     st.header("⚙️ Chọn mô hình & Huấn luyện")
 
