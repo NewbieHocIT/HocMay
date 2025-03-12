@@ -12,3 +12,4 @@ scikit-plot
 streamlit-drawable-canvas
 opencv-python
 tensorflow
+seaborn 
