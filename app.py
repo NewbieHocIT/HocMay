@@ -7,7 +7,7 @@ from src.neural import Neural
 import mlflow
 from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
-from src import PCA_tSNE
+from src.PCA_tSNE import pce
 from src.linear_regression import LinearApp
 # Cache dữ liệu MNIST
 
@@ -269,7 +269,7 @@ if st.session_state.current_page == "Classification MNIST":
 elif st.session_state.current_page == "Clustering Algorithms":
     Clustering()
 elif st.session_state.current_page == "PCA, t-SNE":
-    PCA_tSNE.pce()
+    pce()
 elif st.session_state.current_page =="Neural Network":
     Neural()
 elif st.session_state.current_page == "MLFlow-Web":
