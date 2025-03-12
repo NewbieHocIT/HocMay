@@ -1,7 +1,9 @@
 import streamlit as st
 import os
 import pandas as pd
-from src import Classification 
+from src.Classification import Classification
+from src.clustering import Clustering
+from src.neural import Neural
 import mlflow
 from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
@@ -263,12 +265,12 @@ if st.session_state.current_page =="LinearRegression":
     LinearApp()
 # Hiển thị nội dung tương ứng với lựa chọn
 if st.session_state.current_page == "Classification MNIST":
-    Classification.Classification()
+    Classification()
 elif st.session_state.current_page == "Clustering Algorithms":
-    clustering.Clustering()
+    Clustering()
 elif st.session_state.current_page == "PCA, t-SNE":
     PCA_tSNE.pce()
 elif st.session_state.current_page =="Neural Network":
-    neural.Neural()
+    Neural()
 elif st.session_state.current_page == "MLFlow-Web":
     mlflow_tab()
