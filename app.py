@@ -1,9 +1,7 @@
 import streamlit as st
 import os
 import pandas as pd
-from src import Classification
-from src import clustering
-from src import neural
+from src import Classification ,clustering ,neural
 import mlflow
 from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
