@@ -12,6 +12,7 @@ from datetime import datetime
 from sklearn.model_selection import cross_val_score
 import plotly.graph_objects as go
 import time
+from streamlit_drawable_canvas import st_canvas
 
 # Load dữ liệu MNIST
 def load_mnist():
