@@ -421,7 +421,6 @@ def du_doan():
     else:
         st.write("🎨 Vẽ số trong khung dưới đây:")
         
-        # Canvas để vẽ
         canvas_result = st_canvas(
             fill_color="black",  # Màu nền
             stroke_width=10,
