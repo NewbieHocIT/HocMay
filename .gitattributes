@@ -1,3 +1,5 @@
 X.pkl filter=lfs diff=lfs merge=lfs -text
 *.pkl filter=lfs diff=lfs merge=lfs -text
 data/mnist/y.pkl filter=lfs diff=lfs merge=lfs -text
+data/mnist/X.pkl filter=lfs diff=lfs merge=lfs -text
+data/mnist/Y.pkl filter=lfs diff=lfs merge=lfs -text
