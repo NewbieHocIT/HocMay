@@ -244,4 +244,10 @@ def pce():
     tab1, tab2 = st.tabs(["📘 Giảm chiều dữ liệu", "🔥 Mlflow"])
 
     with tab1:
-        run_pca_ts
+        run_pca_tsne()
+        
+    with tab2:
+        show_experiment_selector()
+
+if __name__ == "__main__":
+    pce()
