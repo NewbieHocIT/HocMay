@@ -53,6 +53,9 @@ def data():
 
 
 
+from sklearn.metrics.pairwise import euclidean_distances
+import numpy as np
+
 def split_data():
     st.title("📌 Chia dữ liệu (Unsupervised Learning)")
 
@@ -61,7 +64,6 @@ def split_data():
     total_samples = X.shape[0]
     if "clustering_split_done" not in st.session_state:
         st.session_state.clustering_split_done = False
-
 
     # Khởi tạo các thuộc tính trong session_state nếu chưa tồn tại
     if "test_size" not in st.session_state:
@@ -72,46 +74,28 @@ def split_data():
         st.session_state.total_samples = total_samples
 
     # Thanh kéo chọn số lượng ảnh để sử dụng
-    num_samples = st.slider(
-        "Chọn số lượng ảnh để sử dụng:", 
-        min_value=1000, 
-        max_value=total_samples, 
-        value=10000
-    )
+    num_samples = st.number_input("📌 Nhập số lượng ảnh để train:", min_value=1000, max_value=70000, value=20000, step=1000)
 
-    # Thanh kéo chọn tỷ lệ Train/Test (nếu cần)
-    test_size = st.slider(
-        "Chọn tỷ lệ test (Để đánh giá)", 
-        min_value=0.0, 
-        max_value=0.5, 
-        value=0.1, 
-        step=0.1
-    )
+
 
     if st.button("✅ Xác nhận & Lưu", key="split_data_confirm_button"):
         st.session_state.clustering_split_done = True  # Đánh dấu đã chia dữ liệu
         st.success("✅ Dữ liệu đã được chia thành công!")
 
-        st.session_state.test_size = test_size
-        st.session_state.train_size = num_samples * (1 - test_size)
+        st.session_state.train_size = num_samples
 
         # Chọn số lượng ảnh mong muốn
         X_selected = X[:num_samples]
 
         # Chia train/test (nếu test_size > 0)
-        if test_size > 0:
-            X_train, X_test = train_test_split(X_selected, test_size=test_size, random_state=42)
-            st.session_state["clustering_X_train"] = X_train
-            st.session_state["clustering_X_test"] = X_test
-            st.success(f"🔹 Dữ liệu đã được chia: Train ({len(X_train)}), Test ({len(X_test)})")
-        else:
-            # Nếu không chia test, sử dụng toàn bộ dữ liệu
-            st.session_state["clustering_X_train"] = X_selected
-            st.session_state["clustering_X_test"] = np.array([])  # Không có tập test
-            st.success(f"🔹 Dữ liệu đã sẵn sàng: {len(X_selected)} ảnh")
+        # Nếu không chia test, sử dụng toàn bộ dữ liệu
+        st.session_state["clustering_X_train"] = X_selected
+        st.session_state["clustering_X_test"] = np.array([])  # Không có tập test
+        st.success(f"🔹 Dữ liệu đã sẵn sàng: {len(X_selected)} ảnh")
 
     if "X_train" in st.session_state:
         st.write("📌 Dữ liệu đã sẵn sàng để sử dụng!")
+
 
 
 def mlflow_input():
@@ -128,12 +112,11 @@ def mlflow_input():
 def train():
     mlflow_input()
 
-    # Kiểm tra xem dữ liệu đã được chia chưa (sử dụng key "clustering_X_train")
+    # Kiểm tra dữ liệu đã được chia chưa
     if "clustering_X_train" not in st.session_state or "clustering_X_test" not in st.session_state:
         st.error("⚠️ Chưa có dữ liệu! Hãy chia dữ liệu trước.")
         return
 
-    # Lấy dữ liệu từ session_state
     X_train = st.session_state["clustering_X_train"]
     X_test = st.session_state["clustering_X_test"]
 
@@ -143,91 +126,75 @@ def train():
 
     st.header("⚙️ Chọn mô hình & Huấn luyện")
 
-    model_choice = st.selectbox(
-        "Chọn mô hình:", 
-        ["K-means", "DBSCAN"], 
-        key="clustering_model_choice_selectbox"  # Thêm key duy nhất
-    )
+    model_choice = st.selectbox("Chọn mô hình:", ["K-means", "DBSCAN"], key="clustering_model_choice_selectbox")
 
     if model_choice == "K-means":
-        st.markdown("""
-        - **K-means** là một thuật toán phân cụm dựa trên khoảng cách giữa các điểm dữ liệu.
-        - **Tham số cần chọn:**  
-            - **n_clusters**: Số lượng cụm.  
-        """)
-        n_clusters = st.slider(
-            "n_clusters", 
-            2, 20, 10, 
-            key="clustering_n_clusters_slider"  # Thêm key duy nhất
-        )
+        n_clusters = st.slider("n_clusters", 2, 20, 10, key="clustering_n_clusters_slider")
         model = KMeans(n_clusters=n_clusters)
-
     elif model_choice == "DBSCAN":
-        st.markdown("""
-        - **DBSCAN** là một thuật toán phân cụm dựa trên mật độ.
-        """)
-        eps = st.slider(
-            "eps (Khoảng cách tối đa giữa hai điểm để coi là lân cận)", 
-            0.01, 1.0, 0.5, 
-            key="clustering_eps_slider"  # Thêm key duy nhất
-        )
-        min_samples = st.slider(
-            "min_samples (Số lượng điểm tối thiểu trong một lân cận)", 
-            2, 20, 5, 
-            key="clustering_min_samples_slider"  # Thêm key duy nhất
-        )
+        # Tham số mặc định tốt hơn cho DBSCAN với MNIST
+        eps = st.slider("eps (Khoảng cách tối đa giữa hai điểm để coi là lân cận)", 0.1, 10.0, 4.2, step=0.1, key="clustering_eps_slider")
+        min_samples = st.slider("min_samples (Số lượng điểm tối thiểu trong một lân cận)", 2, 50, 10, key="clustering_min_samples_slider")
         model = DBSCAN(eps=eps, min_samples=min_samples)
 
-    run_name = st.text_input(
-        "🔹 Nhập tên Run:", 
-        "Default_Run", 
-        key="clustering_run_name_input"  # Thêm key duy nhất
-    )
+    run_name = st.text_input("🔹 Nhập tên Run:", "Default_Run", key="clustering_run_name_input")
     st.session_state["run_name"] = run_name if run_name else "default_run"
 
-    if st.button("Huấn luyện mô hình", key="clustering_train_button"):  # Thêm key duy nhất
+    if st.button("Huấn luyện mô hình", key="clustering_train_button"):
         with mlflow.start_run(run_name=f"Train_{st.session_state['run_name']}"):
+            # Các bước log param như cũ
             mlflow.log_param("test_size", st.session_state.test_size)
             mlflow.log_param("train_size", st.session_state.train_size)
             mlflow.log_param("num_samples", st.session_state.total_samples)
 
-            progress_bar = st.progress(0)  # Thanh tiến trình
-            status_text = st.empty()  # Hiển thị trạng thái từng bước
+            progress_bar = st.progress(0)
+            status_text = st.empty()
 
-            # Bước 1: Huấn luyện mô hình
+
+
+    # Huấn luyện mô hình
             status_text.text("⏳ Đang huấn luyện mô hình...")
-            progress_bar.progress(30)
-
+            start_time = time.time()
             model.fit(X_train)
-            labels = model.labels_
+            training_time = time.time() - start_time
+            labels = model.labels_ if hasattr(model, "labels_") else model.predict(X_train)
+            st.session_state["clustering_labels"] = labels
 
-            # Bước 2: Tính toán silhouette score
+            # Giả lập thanh tiến trình mượt mà
+            total_steps = 100
+            for i in range(total_steps + 1):
+                progress = min(i / total_steps, 0.5)  # 0% -> 50% cho huấn luyện
+                progress_bar.progress(progress)
+                time.sleep(training_time / (2 * total_steps))  # Điều chỉnh tốc độ dựa trên thời gian thực
+
+            # Tính silhouette score
             status_text.text("📊 Đang tính toán silhouette score...")
-            progress_bar.progress(60)
-
-            if len(np.unique(labels)) > 1:
+            if len(np.unique(labels)) > 1 and -1 not in labels:
                 silhouette_avg = silhouette_score(X_train, labels)
                 st.success(f"📊 **Silhouette Score**: {silhouette_avg:.4f}")
                 mlflow.log_metric("silhouette_score", silhouette_avg)
-            else:
-                st.warning("⚠ Không thể tính silhouette score vì chỉ có một cụm.")
+            # Tiếp tục tăng progress từ 50% đến 80%
+            for i in range(total_steps // 2, int(total_steps * 0.8)):
+                progress = i / total_steps
+                progress_bar.progress(progress)
+                time.sleep(0.01)
 
-            # Bước 3: Logging với MLflow
+            # Logging MLflow và lưu mô hình
             status_text.text("📝 Đang ghi log vào MLflow...")
-            progress_bar.progress(80)
-
             mlflow.log_param("model", model_choice)
             if model_choice == "K-means":
                 mlflow.log_param("n_clusters", n_clusters)
             elif model_choice == "DBSCAN":
                 mlflow.log_param("eps", eps)
                 mlflow.log_param("min_samples", min_samples)
-
             mlflow.sklearn.log_model(model, model_choice.lower())
 
-            # Bước 4: Lưu mô hình vào session_state
+            # Tiến trình từ 80% đến 100%
             status_text.text("💾 Đang lưu mô hình...")
-            progress_bar.progress(90)
+            for i in range(int(total_steps * 0.8), total_steps + 1):
+                progress = i / total_steps
+                progress_bar.progress(progress)
+                time.sleep(0.01)
 
             if "clustering_models" not in st.session_state:
                 st.session_state["clustering_models"] = []
@@ -250,6 +217,31 @@ def train():
                 st.warning(f"⚠️ Mô hình được lưu với tên: {model_name}")
 
             st.session_state["clustering_models"].append({"name": model_name, "model": model})
+
+            # Hiển thị thông tin bổ sung cho DBSCAN
+            if model_choice == "DBSCAN":
+                num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+                num_noise = list(labels).count(-1)
+                st.write(f"🔢 Số lượng cụm: {num_clusters}")
+                st.write(f"🔢 Số lượng điểm nhiễu: {num_noise}")
+
+            # Hiển thị silhouette score (nếu đã tính)
+            if "silhouette_avg" in locals() and len(np.unique(labels)) > 1 and -1 not in labels:
+                st.write(f"📊 **Silhouette Score**: {silhouette_avg:.4f}")
+            elif model_choice == "DBSCAN" and -1 in labels:
+                # Tính silhouette score loại bỏ nhiễu cho DBSCAN
+                if num_clusters > 1:  # Chỉ tính nếu có hơn 1 cụm hợp lệ
+                    mask = labels != -1  # Lọc bỏ các điểm nhiễu
+                    if mask.sum() > 0:  # Đảm bảo còn dữ liệu sau khi lọc
+                        silhouette_avg_no_noise = silhouette_score(X_train[mask], labels[mask])
+                        st.write(f"📊 **Silhouette Score**: {silhouette_avg_no_noise:.4f}")
+                    else:
+                        st.write("📊 Không thể tính Silhouette Score: Không đủ điểm dữ liệu sau khi loại bỏ nhiễu.")
+                else:
+                    st.write("📊 Không thể tính Silhouette Score: Chỉ có 1 cụm hoặc toàn bộ là nhiễu.")
+            else:
+                st.write("📊 Không thể tính Silhouette Score: Chỉ có 1 cụm.")
+
             st.write(f"🔹 Mô hình đã được lưu với tên: {model_name}")
             st.write(f"Tổng số mô hình hiện tại: {len(st.session_state['clustering_models'])}")
 
@@ -260,14 +252,33 @@ def train():
             st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
             status_text.text("💾 Đã lưu")
             progress_bar.progress(100)
+            
+import streamlit as st
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans, DBSCAN
+import plotly.express as px
 
-from streamlit_drawable_canvas import st_canvas
-from PIL import Image, ImageOps
+import time  # Thêm thư viện time để mô phỏng tiến trình
 
-def du_doan():
-    st.title("🔢 Dự đoán phân cụm")
+import plotly.express as px
+from sklearn.decomposition import PCA
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import streamlit as st
+from sklearn.cluster import KMeans, DBSCAN
+import time
 
-    # Kiểm tra xem đã có mô hình chưa
+def visualize_clusters():
+    st.title("🔢 Trực quan hóa các cụm từ mô hình đã huấn luyện")
+
+    # Kiểm tra mô hình đã huấn luyện
     if "clustering_models" not in st.session_state or not st.session_state["clustering_models"]:
         st.error("⚠️ Chưa có mô hình nào được huấn luyện. Hãy huấn luyện mô hình trước.")
         return
@@ -277,81 +288,118 @@ def du_doan():
     selected_model_name = st.selectbox("🔍 Chọn mô hình đã huấn luyện:", model_names)
     selected_model = next(model["model"] for model in st.session_state["clustering_models"] if model["name"] == selected_model_name)
 
-    # Chọn phương thức nhập ảnh
-    input_option = st.radio("🖼 Chọn phương thức nhập:", ["Tải lên ảnh", "Vẽ số"], 
-                            horizontal=True,
-                            key="input_option_radio"  # Thêm key
-                            )
+    # Kiểm tra nếu đã có nhãn cụm từ quá trình huấn luyện
+    if "clustering_labels" not in st.session_state:
+        st.error("⚠️ Chưa có nhãn cụm được lưu. Hãy đảm bảo mô hình đã được huấn luyện và lưu nhãn.")
+        return
+    
+    labels = st.session_state["clustering_labels"]
 
-    img_array = None  # Lưu ảnh đầu vào
+    # Chọn kiểu trực quan
+    plot_type = st.radio("Chọn kiểu trực quan:", ["2D", "3D"])
 
-    if input_option == "Tải lên ảnh":
-        uploaded_file = st.file_uploader("📤 Tải lên ảnh chữ số viết tay (28x28 pixel)", 
-                                         type=["png", "jpg", "jpeg"],key="file_uploader" )
-        if uploaded_file is not None:
-            try:
-                image = Image.open(uploaded_file).convert("L")
-                image = ImageOps.invert(image)
-                image = image.resize((28, 28))
-                st.image(image, caption="Ảnh đã tải lên", use_column_width=False)
+    # Nút bắt đầu trực quan hóa
+    if st.button("Bắt đầu trực quan hóa"):
+        # Khởi tạo thanh tiến trình và trạng thái
+        progress_bar = st.progress(0)
+        status_text = st.empty()
 
-                img_array = np.array(image).reshape(1, -1) / 255.0
+        # Bước 1: Giảm chiều dữ liệu bằng PCA
+        status_text.text("⏳ Đang giảm chiều dữ liệu...")
+        for percent_complete in range(20):  # Tăng dần từ 0% đến 20%
+            time.sleep(0.05)
+            progress_bar.progress(percent_complete + 1)
 
-            except Exception as e:
-                st.error(f"❌ Lỗi xử lý ảnh: {str(e)}")
+        # Lấy dữ liệu từ session_state
+        X_train = st.session_state["clustering_X_train"]
+        X_train = X_train.reshape(-1, 28 * 28) / 255.0
 
-    elif input_option == "Vẽ số":
-        st.write("✏️ Vẽ số bên dưới (dùng chuột hoặc cảm ứng):")
-        canvas_result = st_canvas(
-            fill_color="black",
-            stroke_width=10,
-            stroke_color="white",
-            background_color="black",
-            width=280,
-            height=280,
-            drawing_mode="freedraw",
-            key="canvas"
-        )
+        # Giảm chiều xuống 3D bằng PCA
+        reducer = PCA(n_components=3, random_state=42)
+        X_reduced = reducer.fit_transform(X_train)
 
-        if canvas_result.image_data is not None:
-            try:
-                image = Image.fromarray((canvas_result.image_data[:, :, 0]).astype(np.uint8))
-                image = image.resize((28, 28)).convert("L")
-                image = ImageOps.invert(image)
-                st.image(image, caption="Ảnh vẽ đã được xử lý", use_column_width=False)
+        # Bước 2: Chuẩn bị dữ liệu
+        status_text.text("⏳ Đang chuẩn bị dữ liệu để vẽ biểu đồ...")
+        for percent_complete in range(20, 50):  # Tăng dần từ 20% đến 50%
+            time.sleep(0.05)
+            progress_bar.progress(percent_complete + 1)
 
-                img_array = np.array(image).reshape(1, -1) / 255.0
+        # Tải nhãn gốc từ MNIST (giả định bạn có hàm load_mnist trả về X và y)
+        from sklearn.datasets import fetch_openml
+        X_mnist, y_mnist = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
+        y_mnist = y_mnist[:len(X_train)].astype(int)  # Chỉ lấy số lượng tương ứng với X_train
 
-            except Exception as e:
-                st.error(f"❌ Lỗi xử lý ảnh vẽ tay: {str(e)}")
+        # Chuyển thành DataFrame
+        df = pd.DataFrame(X_reduced, columns=['X1', 'X2', 'X3'])
+        df['Cluster'] = labels.astype(str)  # Chuyển nhãn cụm thành chuỗi để Plotly coi là phân loại
+        df['Original_Label'] = y_mnist  # Nhãn gốc từ MNIST
 
-    # Nút dự đoán
-    if img_array is not None:
-        if st.button("🚀 Dự đoán",key="predict_button"):
-            if isinstance(selected_model, DBSCAN):
-                st.warning("⚠️ DBSCAN không hỗ trợ dự đoán trực tiếp.")
-                st.write("🔢 Nhãn cụm từ quá trình huấn luyện:")
-                st.write(selected_model.labels_)
+        # Bước 3: Vẽ biểu đồ
+        status_text.text("⏳ Đang vẽ biểu đồ...")
+        for percent_complete in range(50, 90):  # Tăng dần từ 50% đến 90%
+            time.sleep(0.05)
+            progress_bar.progress(percent_complete + 1)
 
-                num_noise = np.sum(selected_model.labels_ == -1)
-                st.write(f"🔢 Số lượng điểm nhiễu (noise): **{num_noise}**")
+        if plot_type == "2D":
+            plt.figure(figsize=(10, 8))
+            sns.scatterplot(x='X1', y='X2', hue='Cluster', data=df, palette='tab10', legend='full')
+            plt.xlabel("X1")
+            plt.ylabel("X2")
+            plt.title("Trực quan hóa cụm bằng PCA (2D)")
+            st.pyplot(plt)
+        else:
+            # Tùy chỉnh biểu đồ 3D với màu riêng biệt cho từng cụm
+            fig = px.scatter_3d(
+                df, 
+                x='X1', 
+                y='X2', 
+                z='X3', 
+                color='Cluster',  # Màu theo cụm (phân loại)
+                title="Trực quan hóa cụm bằng PCA (3D)",
+                hover_data={'Original_Label': True, 'Cluster': True},  # Hiển thị nhãn gốc và nhãn dự đoán khi hover
+                opacity=0.7,  # Độ trong suốt để dễ nhìn
+                symbol='Cluster',  # Dùng biểu tượng khác nhau cho từng cụm (tùy chọn)
+            )
+            # Tùy chỉnh giao diện
+            fig.update_traces(marker=dict(size=5))  # Kích thước điểm
+            fig.update_layout(
+                scene=dict(
+                    xaxis_title='X1',
+                    yaxis_title='X2',
+                    zaxis_title='X3',
+                    bgcolor='rgba(0,0,0,0)',  # Nền trong suốt
+                ),
+                margin=dict(l=0, r=0, b=0, t=40),  # Giảm lề
+                title_x=0.5,  # Căn giữa tiêu đề
+                legend_title_text='Cụm',  # Tiêu đề legend
+                coloraxis_showscale=False,  # Ẩn thanh màu gradient
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-            elif isinstance(selected_model, KMeans):
-                prediction = selected_model.predict(img_array)
-                st.success(f"🔢 Dự đoán nhãn cụm: **{prediction[0]}**")
-                st.write("🔢 Tâm cụm (centroids):")
-                st.write(selected_model.cluster_centers_)
+        # Bước 4: Hiển thị thông tin mô hình
+        status_text.text("⏳ Đang hiển thị thông tin mô hình...")
+        for percent_complete in range(90, 100):  # Tăng dần từ 90% đến 100%
+            time.sleep(0.05)
+            progress_bar.progress(percent_complete + 1)
 
-            else:
-                st.error("⚠️ Mô hình không được hỗ trợ trong chức năng này.")
+        # Hiển thị thông tin mô hình
+        st.write("📋 **Thông tin mô hình:**")
+        st.write(f"- Tên mô hình: **{selected_model_name}**")
+        st.write(f"- Loại mô hình: **{type(selected_model).__name__}**")
 
-            # Hiển thị thông tin mô hình
-            st.write("📋 **Thông tin mô hình:**")
-            st.write(f"- Tên mô hình: **{selected_model_name}**")
-            st.write(f"- Loại mô hình: **{type(selected_model).__name__}**")
+        if isinstance(selected_model, KMeans):
+            st.write("🔢 Số lượng cụm: **{}**".format(selected_model.n_clusters))
+            st.write("🔢 Tâm cụm (centroids):")
+            st.write(selected_model.cluster_centers_)
+        elif isinstance(selected_model, DBSCAN):
+            num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+            num_noise = np.sum(labels == -1)
+            st.write(f"🔢 Số lượng cụm: **{num_clusters}**")
+            st.write(f"🔢 Số lượng điểm nhiễu (noise): **{num_noise}**")
 
-
-
+        # Hoàn thành
+        status_text.text("✅ Hoàn thành trực quan hóa!")
+        progress_bar.progress(100)
 def show_experiment_selector():
     st.title("📊 MLflow Experiments")
 
@@ -420,7 +468,7 @@ def show_experiment_selector():
 def Clustering():
     st.title("🖊️ MNIST Clustering App")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📘 Data", "⚙️ Huấn luyện", "🔢 Dự đoán", "🔥Mlflow"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📘 Data", "⚙️ Huấn luyện", "🔢 Trực quan hóa", "🔥Mlflow"])
 
     with tab1:
         data()
@@ -430,7 +478,7 @@ def Clustering():
         train()
         
     with tab3:
-        du_doan()   
+        visualize_clusters()   
     with tab4:
         show_experiment_selector()  
 

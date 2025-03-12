@@ -83,13 +83,13 @@ def split_data():
     X, y = load_mnist() 
     total_samples = X.shape[0]
 
-    
     # Nếu chưa có cờ "data_split_done", đặt mặc định là False
     if "data_split_done" not in st.session_state:
         st.session_state.data_split_done = False  
 
+
     # Thanh kéo chọn số lượng ảnh để train
-    num_samples = st.slider("📌 Chọn số lượng ảnh để train:", 1000, total_samples, 10000)
+    num_samples = st.number_input("📌 Nhập số lượng ảnh để train:", min_value=1000, max_value=70000, value=20000, step=1000)
     
     # Thanh kéo chọn tỷ lệ Train/Test
     test_size = st.slider("📌 Chọn % dữ liệu Test", 10, 50, 20)
@@ -97,13 +97,15 @@ def split_data():
     val_size = st.slider("📌 Chọn % dữ liệu Validation (trong phần Train)", 0, 50, 15)
     st.write(f"📌 **Tỷ lệ phân chia:** Test={test_size}%, Validation={val_size}%, Train={remaining_size - val_size}%")
 
-    if st.button("✅ Xác nhận & Lưu",key="luu") and not st.session_state.data_split_done:
+    if st.button("✅ Xác nhận & Lưu", key="luu"):
         st.session_state.data_split_done = True  # Đánh dấu đã chia dữ liệu
         
-        # Chia dữ liệu theo tỷ lệ đã chọn
-        X_selected, _, y_selected, _ = train_test_split(
-            X, y, train_size=num_samples, stratify=y, random_state=42
-        )
+        if num_samples == total_samples:
+            X_selected, y_selected = X, y
+        else:
+            X_selected, _, y_selected, _ = train_test_split(
+                X, y, train_size=num_samples, stratify=y, random_state=42
+            )
 
         # Chia train/test
         stratify_option = y_selected if len(np.unique(y_selected)) > 1 else None
@@ -112,14 +114,18 @@ def split_data():
         )
 
         # Chia train/val
-        stratify_option = y_train_full if len(np.unique(y_train_full)) > 1 else None
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_train_full, y_train_full, test_size=val_size / (100 - test_size),
-            stratify=stratify_option, random_state=42
-        )
+        if val_size > 0:
+            stratify_option = y_train_full if len(np.unique(y_train_full)) > 1 else None
+            X_train, X_val, y_train, y_val = train_test_split(
+                X_train_full, y_train_full, test_size=val_size / (100 - test_size),
+                stratify=stratify_option, random_state=42
+            )
+        else:
+            X_train, y_train = X_train_full, y_train_full
+            X_val, y_val = np.array([]), np.array([])  # Validation rỗng nếu val_size = 0
 
         # Lưu dữ liệu vào session_state
-        st.session_state.total_samples= num_samples
+        st.session_state.total_samples = num_samples
         st.session_state["classification_X_train"] = X_train
         st.session_state["classification_X_val"] = X_val
         st.session_state["classification_X_test"] = X_test
@@ -139,7 +145,8 @@ def split_data():
         st.table(summary_df)
 
     elif st.session_state.data_split_done:
-        st.info("✅ Dữ liệu đã được chia.")
+        st.info("✅ Dữ liệu đã được chia. Nhấn **🔄 Chia lại dữ liệu** để thay đổi.")
+
 def mlflow_input():
     DAGSHUB_MLFLOW_URI = "https://dagshub.com/NewbieHocIT/MocMayvsPython.mlflow"
     st.session_state['mlflow_url'] = DAGSHUB_MLFLOW_URI
@@ -150,10 +157,12 @@ def mlflow_input():
 
     mlflow.set_experiment("Classification")
 
+import time
+
 def train():
     mlflow_input()
 
-    # Kiểm tra xem dữ liệu đã được chia chưa (sử dụng tiền tố "classification_")
+    # Kiểm tra xem dữ liệu đã được chia chưa
     if (
         "classification_X_train" not in st.session_state
         or "classification_X_val" not in st.session_state
@@ -170,7 +179,7 @@ def train():
     y_val = st.session_state["classification_y_val"]
     y_test = st.session_state["classification_y_test"]
 
-    # Chuyển đổi DataFrame thành numpy array trước khi reshape
+    # Chuyển đổi dữ liệu
     X_train = X_train.reshape(-1, 28 * 28) / 255.0
     X_test = X_test.reshape(-1, 28 * 28) / 255.0
 
@@ -179,7 +188,7 @@ def train():
     model_choice = st.selectbox(
         "Chọn mô hình:", 
         ["Decision Tree", "SVM"], 
-        key="classification_model_choice_selectbox"  # Thêm key duy nhất
+        key="classification_model_choice_selectbox"
     )
 
     if model_choice == "Decision Tree":
@@ -189,16 +198,16 @@ def train():
             - **max_depth**: Giới hạn độ sâu tối đa của cây.  
         """)
         criterion = st.selectbox(
-        "Chọn tiêu chuẩn phân nhánh (criterion):", 
-        ["gini", "entropy"], 
-        key="classification_criterion_selectbox"  # Thêm key duy nhất
-    )
+            "Chọn tiêu chuẩn phân nhánh (criterion):", 
+            ["gini", "entropy"], 
+            key="classification_criterion_selectbox"
+        )
         max_depth = st.slider(
             "max_depth", 
             1, 20, 5, 
-            key="classification_max_depth_slider"  # Thêm key duy nhất
+            key="classification_max_depth_slider"
         )
-        model = DecisionTreeClassifier(max_depth=max_depth)
+        model = DecisionTreeClassifier(max_depth=max_depth, criterion=criterion)
 
     elif model_choice == "SVM":
         st.markdown("""
@@ -207,29 +216,29 @@ def train():
         C = st.slider(
             "C (Regularization)", 
             0.1, 10.0, 1.0, 
-            key="classification_C_slider"  # Thêm key duy nhất
+            key="classification_C_slider"
         )
         kernel = st.selectbox(
             "Kernel", 
             ["linear", "sigmoid"], 
-            key="classification_kernel_selectbox"  # Thêm key duy nhất
+            key="classification_kernel_selectbox"
         )
-        model = SVC(C=C, kernel=kernel, probability=True)  # Thêm probability=True
-    
+        model = SVC(C=C, kernel=kernel, probability=True)
+
     n_folds = st.slider(
         "Chọn số folds (KFold Cross-Validation):", 
         min_value=2, max_value=10, value=5, 
-        key="classification_n_folds_slider"  # Thêm key duy nhất
+        key="classification_n_folds_slider"
     )
     
     run_name = st.text_input(
         "🔹 Nhập tên Run:", 
         "Default_Run", 
-        key="classification_run_name_input"  # Thêm key duy nhất
+        key="classification_run_name_input"
     )
     st.session_state["run_name"] = run_name if run_name else "default_run"
     
-    if st.button("Huấn luyện mô hình", key="classification_train_button"):  # Thêm key duy nhất
+    if st.button("Huấn luyện mô hình", key="classification_train_button"):
         with mlflow.start_run(run_name=f"Train_{st.session_state['run_name']}"):
             mlflow.log_param("test_size", st.session_state.test_size)
             mlflow.log_param("val_size", st.session_state.val_size)
@@ -239,42 +248,41 @@ def train():
             progress_bar = st.progress(0)  # Thanh tiến trình
             status_text = st.empty()  # Hiển thị trạng thái từng bước
 
-            # Bước 1: Cross-Validation
+            # Giai đoạn 1: Cross-Validation (0% -> 40%)
             status_text.text("⏳ Đang chạy Cross Validation...")
-            progress_bar.progress(10)
-
             cv_scores = cross_val_score(model, X_train, y_train, cv=n_folds)
+            for i in range(0, 41, 2):  # Tăng dần từ 0% đến 40% với bước nhỏ
+                progress_bar.progress(i)
+                time.sleep(0.05)  # Tạo hiệu ứng mượt mà (có thể điều chỉnh thời gian)
             mean_cv_score = cv_scores.mean()
             std_cv_score = cv_scores.std()
-
             status_text.text(f"✅ Cross-Validation hoàn tất! 📊 Độ chính xác trung bình: {mean_cv_score:.4f}")
             st.info(f"📊 **Cross-Validation Accuracy**: {mean_cv_score:.4f} ± {std_cv_score:.4f}")
-            progress_bar.progress(40)
 
-            # Bước 2: Huấn luyện mô hình
+            # Giai đoạn 2: Huấn luyện mô hình (40% -> 70%)
             status_text.text("🛠️ Đang huấn luyện mô hình...")
-            progress_bar.progress(60)
-
+            for i in range(40, 71, 2):  # Tăng từ 40% đến 70%
+                progress_bar.progress(i)
+                time.sleep(0.05)  # Tạo hiệu ứng mượt mà
             model.fit(X_train, y_train)
-
             status_text.text("✅ Huấn luyện hoàn tất!")
-            progress_bar.progress(70)
 
-            # Bước 3: Kiểm tra trên test set
+            # Giai đoạn 3: Đánh giá trên test set (70% -> 85%)
             status_text.text("📊 Đang đánh giá mô hình trên test set...")
+            for i in range(70, 86, 2):  # Tăng từ 70% đến 85%
+                progress_bar.progress(i)
+                time.sleep(0.05)
             y_pred = model.predict(X_test)
             acc = accuracy_score(y_test, y_pred)
-
             st.success(f"✅ **Độ chính xác trên test set**: {acc:.4f}")
-            progress_bar.progress(80)
 
-            # Bước 4: Logging với MLflow
+            # Giai đoạn 4: Logging với MLflow (85% -> 100%)
             status_text.text("📝 Đang ghi log vào MLflow...")
-            mlflow.log_param("test_size", st.session_state.test_size)
-            mlflow.log_param("val_size", st.session_state.val_size)
-            mlflow.log_param("train_size", st.session_state.train_size)
-            mlflow.log_param("num_samples", st.session_state.total_samples)
-            
+            for i in range(85, 101, 2):  # Tăng từ 85% đến 100%
+                progress_bar.progress(i)
+                time.sleep(0.05)
+
+            # Logging thông tin
             mlflow.log_param("model", model_choice)
             if model_choice == "Decision Tree":
                 mlflow.log_param("criterion", criterion)
@@ -288,7 +296,7 @@ def train():
             mlflow.log_metric("cv_accuracy_std", std_cv_score)
             mlflow.sklearn.log_model(model, model_choice.lower())
 
-            status_text.text("✅ Huấn luyện và logging hoàn tất!")
+            # Lưu mô hình vào session_state
             if "classification_models" not in st.session_state:
                 st.session_state["classification_models"] = []
 
@@ -297,7 +305,6 @@ def train():
                 model_name += f"_{kernel}"
 
             existing_model = next((item for item in st.session_state["classification_models"] if item["name"] == model_name), None)
-
             if existing_model:
                 count = 1
                 new_model_name = f"{model_name}_{count}"
@@ -315,12 +322,9 @@ def train():
             model_names = [model["name"] for model in st.session_state["classification_models"]]
             st.write(", ".join(model_names))
 
+            # Hoàn tất
+            status_text.text("✅ Huấn luyện và logging hoàn tất!")
             st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
-
-
-            progress_bar.progress(100)
-
-
 
 
 from datetime import datetime
@@ -438,8 +442,8 @@ def du_doan():
         canvas_result = st_canvas(
             fill_color="black",  # Màu nền
             stroke_width=10,
-            stroke_color="black",
-            background_color="white",
+            stroke_color="white",
+            background_color="black",
             height=250,
             width=250,
             drawing_mode="freedraw",

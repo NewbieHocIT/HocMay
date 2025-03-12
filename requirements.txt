@@ -6,11 +6,9 @@ matplotlib
 tensorflow
 mlflow
 dagshub
-imbalanced-learn
 Pillow
-umap-learn
-seaborn
 plotly
 scikit-plot
 streamlit-drawable-canvas
 opencv-python
+tensorflow

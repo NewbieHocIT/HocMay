@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from src import Classification
 from src import clustering
+from src import neural
 import mlflow
 from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
@@ -244,16 +245,18 @@ with st.sidebar:
     st.write("### Chọn chức năng")
     
     # Sử dụng st.button để tạo các nút bấm
-    if st.button("📊 Classification MNIST"):
+    if st.button("Classification MNIST"):
         st.session_state.current_page = "Classification MNIST"
     if st.button("LinearRegression"):
         st.session_state.current_page = "LinearRegression"
-    if st.button("🔍 Clustering Algorithms"):
+    if st.button("Clustering Algorithms"):
         st.session_state.current_page = "Clustering Algorithms"
-    if st.button("🚀 MLFlow-Web"):
-        st.session_state.current_page = "MLFlow-Web"
     if st.button("PCA, t-SNE"):
         st.session_state.current_page = "PCA, t-SNE"
+    if st.button("Neural Network"):
+        st.session_state.current_page ="Neural Network"
+    if st.button("🚀 MLFlow-Web"):
+        st.session_state.current_page = "MLFlow-Web"
 
 # Khởi tạo session state nếu chưa có
 if "current_page" not in st.session_state:
@@ -265,7 +268,9 @@ if st.session_state.current_page == "Classification MNIST":
     Classification.Classification()
 elif st.session_state.current_page == "Clustering Algorithms":
     clustering.Clustering()
+elif st.session_state.current_page == "PCA, t-SNE":
+    PCA_tSNE.pce()
+elif st.session_state.current_page =="Neural Network":
+    neural.Neural()
 elif st.session_state.current_page == "MLFlow-Web":
     mlflow_tab()
-elif st.session_state.current_page == "PCA, t-SNE":
-    PCA_tSNE.run_pca_tsne()
