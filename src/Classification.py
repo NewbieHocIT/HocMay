@@ -10,7 +10,9 @@ import os
 import mlflow
 from datetime import datetime
 from sklearn.model_selection import cross_val_score
-from sklearn.datasets import fetch_openml
+import plotly.graph_objects as go
+import time
+
 # Load dữ liệu MNIST
 def load_mnist():
     X = np.load("data/mnist/X.npy")
@@ -53,6 +55,7 @@ def data():
       - **Support Vector Machines (SVM)**
       - **Convolutional Neural Networks (CNNs)**
     """)
+
 def plot_tree_metrics():
     accuracies = [
         0.4759, 0.5759, 0.6593, 0.7741, 0.8241, 0.8259, 0.8481, 0.8574, 0.8537, 0.8463,
@@ -69,12 +72,6 @@ def plot_tree_metrics():
 
     st.subheader("Độ chính xác theo chiều sâu cây quyết định")
     st.line_chart(data.set_index('Tree Depth'))
-import streamlit as st
-import numpy as np
-import pandas as pd
-from sklearn.datasets import fetch_openml
-from sklearn.model_selection import train_test_split
-
 
 def split_data():
     st.title("📌 Chia dữ liệu Train/Test")
@@ -86,7 +83,6 @@ def split_data():
     # Nếu chưa có cờ "data_split_done", đặt mặc định là False
     if "data_split_done" not in st.session_state:
         st.session_state.data_split_done = False  
-
 
     # Thanh kéo chọn số lượng ảnh để train
     num_samples = st.number_input("📌 Nhập số lượng ảnh để train:", min_value=1000, max_value=70000, value=20000, step=1000)
@@ -151,24 +147,21 @@ def mlflow_input():
     DAGSHUB_MLFLOW_URI = "https://dagshub.com/NewbieHocIT/MocMayvsPython.mlflow"
     st.session_state['mlflow_url'] = DAGSHUB_MLFLOW_URI
     mlflow.set_tracking_uri(DAGSHUB_MLFLOW_URI)
-
     os.environ["MLFLOW_TRACKING_USERNAME"] = "NewbieHocIT"
     os.environ["MLFLOW_TRACKING_PASSWORD"] = "681dda9a41f9271a144aa94fa8624153a3c95696"
-
     mlflow.set_experiment("Classification")
-
-import time
 
 def train():
     mlflow_input()
 
     # Kiểm tra xem dữ liệu đã được chia chưa
-    if (
-        "classification_X_train" not in st.session_state
-        or "classification_X_val" not in st.session_state
-        or "classification_X_test" not in st.session_state
-    ):
-        st.error("⚠️ Chưa có dữ liệu! Hãy chia dữ liệu trước.")
+    required_keys = [
+        "classification_X_train", "classification_X_val", "classification_X_test",
+        "classification_y_train", "classification_y_val", "classification_y_test",
+        "test_size", "val_size", "train_size", "total_samples"
+    ]
+    if not all(key in st.session_state for key in required_keys):
+        st.error("⚠️ Chưa có dữ liệu! Hãy chia dữ liệu trong tab 'Huấn luyện' trước khi tiếp tục.")
         return
 
     # Lấy dữ liệu từ session_state
@@ -251,9 +244,9 @@ def train():
             # Giai đoạn 1: Cross-Validation (0% -> 40%)
             status_text.text("⏳ Đang chạy Cross Validation...")
             cv_scores = cross_val_score(model, X_train, y_train, cv=n_folds)
-            for i in range(0, 41, 2):  # Tăng dần từ 0% đến 40% với bước nhỏ
+            for i in range(0, 41, 2):  # Tăng dần từ 0% đến 40%
                 progress_bar.progress(i)
-                time.sleep(0.05)  # Tạo hiệu ứng mượt mà (có thể điều chỉnh thời gian)
+                time.sleep(0.05)
             mean_cv_score = cv_scores.mean()
             std_cv_score = cv_scores.std()
             status_text.text(f"✅ Cross-Validation hoàn tất! 📊 Độ chính xác trung bình: {mean_cv_score:.4f}")
@@ -263,7 +256,7 @@ def train():
             status_text.text("🛠️ Đang huấn luyện mô hình...")
             for i in range(40, 71, 2):  # Tăng từ 40% đến 70%
                 progress_bar.progress(i)
-                time.sleep(0.05)  # Tạo hiệu ứng mượt mà
+                time.sleep(0.05)
             model.fit(X_train, y_train)
             status_text.text("✅ Huấn luyện hoàn tất!")
 
@@ -326,9 +319,6 @@ def train():
             status_text.text("✅ Huấn luyện và logging hoàn tất!")
             st.success(f"✅ Đã log dữ liệu cho **Train_{st.session_state['run_name']}**!")
 
-
-from datetime import datetime
-
 def show_experiment_selector():
     st.title("📊 MLflow Experiments")
 
@@ -363,7 +353,7 @@ def show_experiment_selector():
         run_dict[run_name] = run["run_id"]  # Map run_name -> run_id
 
     # Chọn run theo tên
-    selected_run_name = st.selectbox("🔍 Chọn một run:", list(run_dict.keys()),key="runname")
+    selected_run_name = st.selectbox("🔍 Chọn một run:", list(run_dict.keys()), key="runname")
     selected_run_id = run_dict[selected_run_name]
 
     # Lấy thông tin của run đã chọn
@@ -393,20 +383,12 @@ def show_experiment_selector():
     else:
         st.warning("⚠ Không tìm thấy thông tin cho run này.")
 
-
-import streamlit as st
-import numpy as np
-import random
-from PIL import Image, ImageOps
-from streamlit_drawable_canvas import st_canvas
-
 def preprocess_image(image):
     """Xử lý ảnh đầu vào: Chuyển về grayscale, resize, chuẩn hóa"""
     image = image.convert("L")
     image = image.resize((28, 28))  # Resize về kích thước phù hợp
     img_array = np.array(image) / 255.0  # Chuẩn hóa pixel về [0,1]
     return img_array.reshape(1, -1)  # Chuyển thành vector 1D
-
 
 def du_doan():
     st.title("🔢 Dự đoán chữ số viết tay")
@@ -422,13 +404,13 @@ def du_doan():
     selected_model = next(model["model"] for model in st.session_state["classification_models"] if model["name"] == selected_model_name)
 
     # Chọn cách nhập ảnh: Tải lên hoặc Vẽ
-    option = st.radio("📌 Chọn cách nhập ảnh:", ["🖼️ Tải ảnh lên", "✍️ Vẽ số"],key="input_option_radio")
+    option = st.radio("📌 Chọn cách nhập ảnh:", ["🖼️ Tải ảnh lên", "✍️ Vẽ số"], key="input_option_radio")
 
     img_array = None  # Khởi tạo ảnh đầu vào
 
     # 1️⃣ 🖼️ Nếu tải ảnh lên
     if option == "🖼️ Tải ảnh lên":
-        uploaded_file = st.file_uploader("📤 Tải ảnh chữ số viết tay (28x28 pixel)", type=["png", "jpg", "jpeg"],key="upfile")
+        uploaded_file = st.file_uploader("📤 Tải ảnh chữ số viết tay (28x28 pixel)", type=["png", "jpg", "jpeg"], key="upfile")
         if uploaded_file:
             image = Image.open(uploaded_file)
             st.image(image, caption="Ảnh đã tải lên", use_container_width=True)
@@ -451,7 +433,7 @@ def du_doan():
         )
 
         # Khi người dùng bấm "Dự đoán"
-        if st.button("Dự đoán số",key="dudoan"):
+        if st.button("Dự đoán số", key="dudoan"):
             if canvas_result.image_data is not None:
                 # Chuyển đổi ảnh từ canvas thành định dạng PIL
                 image = Image.fromarray((canvas_result.image_data[:, :, :3]).astype(np.uint8))
@@ -469,16 +451,11 @@ def du_doan():
 
         # 📊 Hiển thị toàn bộ độ tin cậy theo từng lớp
         st.write("### 🔢 Độ tin cậy :")
-
-        # 📊 Vẽ biểu đồ độ tin cậy
         st.bar_chart(probabilities)
-
-
-
 
 def Classification():
     st.title("🖊️ MNIST Classification App")
-    tab1, tab2, tab3, tab4 = st.tabs(["📘 Data", "⚙️ Huấn luyện", "🔢 Dự đoán", "🔥Mlflow"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📘 Data", "⚙️ Huấn luyện", "🔢 Dự đoán", "🔥 Mlflow"])
 
     with tab1:
         data()
